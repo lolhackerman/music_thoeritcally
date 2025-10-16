@@ -1,0 +1,28 @@
+name: music_theoretically
+description: A guitar learning app with tap-to-play fretboard.
+# version, environment, etc.
+version: 0.1.0
+environment:
+  sdk: ">=2.17.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # audio player for playing your note MP3s:
+  audioplayers: ^6.5.1
+  native_device_orientation: ^2.0.3
+
+
+  # (other deps you already have…)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    # point to your folder of note files:
+    - assets/notes/

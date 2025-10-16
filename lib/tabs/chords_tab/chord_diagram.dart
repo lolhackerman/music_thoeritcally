@@ -1,0 +1,252 @@
+// ============================
+// lib/widgets/chords_tab/chord_diagram.dart
+// ============================
+
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'chord_library.dart';
+
+class ChordDiagram extends StatelessWidget {
+  final ChordVoicing voicing;
+  final double width;
+  final double height;
+  final bool selected;
+  final VoidCallback? onTap;
+  final bool showFretNumbers;
+
+  const ChordDiagram({
+    super.key,
+    required this.voicing,
+    this.width = 96,
+    this.height = 120,
+    this.selected = false,
+    this.onTap,
+    this.showFretNumbers = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final shortest = math.min(width, height);
+    final pad = (shortest * 0.05).clamp(2.0, 8.0);
+    final radius = (shortest * 0.16).clamp(8.0, 16.0);
+    final borderW = selected ? 1.6 : 1.0;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: width,
+        height: height,
+        padding: EdgeInsets.all(pad),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(
+            width: borderW,
+            color: selected ? Colors.white : Colors.grey.shade600,
+          ),
+        ),
+        child: CustomPaint(
+          painter: _ChordDiagramPainter(
+            voicing: voicing,
+            showFretNumbers: showFretNumbers,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChordDiagramPainter extends CustomPainter {
+  final ChordVoicing voicing;
+  final bool showFretNumbers;
+  _ChordDiagramPainter({required this.voicing, required this.showFretNumbers});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final g = _Geom(size);
+
+    final grid = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = g.gridStrokeW
+      ..color = const Color(0xFF6B7280);
+
+    // Strings (6 vertical lines)
+    for (int s = 0; s < 6; s++) {
+      final x = g.strX(s);
+      canvas.drawLine(Offset(x, g.top), Offset(x, g.bottom), grid);
+    }
+
+    // Frets (5 horizontal lines)
+    for (int f = 0; f <= 5; f++) {
+      final y = g.fretY(f);
+      canvas.drawLine(Offset(g.left, y), Offset(g.right, y), grid);
+    }
+
+    // Nut (thicker) when baseFret == 1
+    if (voicing.baseFret == 1) {
+      final nut = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = g.nutStrokeW
+        ..color = Colors.white;
+      canvas.drawLine(Offset(g.left, g.top), Offset(g.right, g.top), nut);
+    }
+
+    // Fret number
+    if (showFretNumbers && voicing.baseFret > 1) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '${voicing.baseFret}fr',
+          style: TextStyle(fontSize: g.fretNumFont, color: Colors.white70),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(g.right - tp.width, g.bottom + g.fretNumDy));
+    }
+
+    // Compute pitch classes per string for color mapping
+    final pcs = pitchClassesForVoicing(voicing);
+
+    // Mutes/Open markers above the nut line
+    for (final p in voicing.positions) {
+      final cx = g.strX(p.stringIndex);
+      final isOpen = p.fretRelative == 0 && !p.muted;
+      if (p.muted) {
+        _drawX(canvas, Offset(cx, g.openY), g.markerR, const Color(0xFFEF4444), g.markerStrokeW);
+      } else if (isOpen) {
+        _drawOpenO(canvas, Offset(cx, g.openY), g.markerR, colorForNote(pcs[p.stringIndex]), g.markerStrokeW);
+      }
+    }
+
+    // Barres first (behind dots)
+    for (final b in voicing.barres) {
+      final y = g.dotCenterY(b.fretRelative);
+      final x1 = g.strX(b.fromString) - g.stringSpacing * 0.30;
+      final x2 = g.strX(b.toStringIndex) + g.stringSpacing * 0.30;
+      final rrect = RRect.fromLTRBR(
+        x1,
+        y - g.dotR * 0.7,
+        x2,
+        y + g.dotR * 0.7,
+        Radius.circular(g.barreRadius),
+      );
+      final col = const Color(0xFFCBD5E1);
+      canvas.drawRRect(rrect, Paint()..color = col.withOpacity(0.22));
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = g.barreStrokeW
+          ..color = col.withOpacity(0.9),
+      );
+
+      if (b.finger != null) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '${b.finger}',
+            style: TextStyle(
+              fontSize: g.fingerFont,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset((x1 + x2) / 2 - tp.width / 2, y - tp.height / 2));
+      }
+    }
+
+    // Fretted dots
+    for (final p in voicing.positions) {
+      if (p.muted || p.fretRelative <= 0) continue; // open & mute handled above
+      final c = Offset(g.strX(p.stringIndex), g.dotCenterY(p.fretRelative));
+      final note = pcs[p.stringIndex];
+      final fill = colorForNote(note);
+      final textCol = textColorForNote(note);
+      canvas.drawCircle(c, g.dotR, Paint()..color = fill);
+
+      if (p.finger != null) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '${p.finger}',
+            style: TextStyle(
+              fontSize: g.dotR * 1.05,
+              color: textCol,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy - tp.height / 2));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChordDiagramPainter oldDelegate) {
+    return oldDelegate.voicing != voicing ||
+        oldDelegate.showFretNumbers != showFretNumbers;
+  }
+
+  void _drawX(Canvas canvas, Offset c, double r, Color color, double strokeW) {
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = strokeW
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(c.dx - r, c.dy - r), Offset(c.dx + r, c.dy + r), p);
+    canvas.drawLine(Offset(c.dx + r, c.dy - r), Offset(c.dx - r, c.dy + r), p);
+  }
+
+  void _drawOpenO(Canvas canvas, Offset c, double r, Color color, double strokeW) {
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = strokeW
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(c, r, p);
+  }
+}
+
+class _Geom {
+  final Size size;
+  _Geom(this.size);
+
+  double get shortest => math.min(size.width, size.height);
+
+  // Scaled paddings
+  double get hPad => (size.width * 0.10).clamp(4.0, 12.0);
+  double get vPadTop => (size.height * 0.14).clamp(6.0, 16.0);
+  double get vPadBot => (size.height * 0.18).clamp(8.0, 18.0);
+
+  // Strokes
+  double get gridStrokeW => (shortest * 0.007).clamp(0.8, 1.2);
+  double get nutStrokeW  => (shortest * 0.012).clamp(1.2, 2.0);
+  double get markerStrokeW => (shortest * 0.010).clamp(1.1, 1.8);
+  double get barreStrokeW  => (shortest * 0.010).clamp(1.0, 1.6);
+
+  // Marker sizes
+  double get markerR => (shortest * 0.08).clamp(3.0, 7.0);
+
+  // Fonts
+  double get fretNumFont  => (size.height * 0.09).clamp(8.0, 11.0);
+  double get fingerFont   => (size.height * 0.10).clamp(9.0, 12.0);
+  double get fretNumDy    => (size.height * 0.015).clamp(1.0, 3.0);
+
+  // Geometry bounds
+  double get left   => hPad;
+  double get right  => size.width - hPad;
+  double get top    => vPadTop;
+  double get bottom => size.height - vPadBot;
+
+  double get stringSpacing => (right - left) / 5.0; // 6 strings → 5 gaps
+  double get fretSpacing   => (bottom - top) / 5.0; // 5 frets
+
+  double strX(int s) => left + s * stringSpacing;
+  double fretY(int f) => top + f * fretSpacing;
+
+  double dotCenterY(int fretRelative) => fretY(fretRelative) - fretSpacing / 2;
+  double get dotR => math.min(stringSpacing, fretSpacing) * 0.24;
+
+  double get openY => top - (markerR * 1.2);
+
+  // Barre capsule corner radius
+  double get barreRadius => (shortest * 0.12).clamp(6.0, 10.0);
+}
