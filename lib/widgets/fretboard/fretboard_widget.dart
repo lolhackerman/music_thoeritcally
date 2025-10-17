@@ -6,23 +6,25 @@ import 'package:flutter/material.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart';
 import 'package:music_theoretically/widgets/fretboard/note_audio_player.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_grid.dart';
+import 'package:music_theoretically/widgets/fretboard/fret_position.dart';
 import 'package:music_theoretically/widgets/responsive_layout.dart';
+import 'package:music_theoretically/state/app_settings.dart';
 
 /// FretboardWidget.dart (pure: no SafeArea / notch logic)
 class FretboardWidget extends StatefulWidget {
   final String rootNote;
   final List<String> scaleNotes;
+  final List<FretPosition>? positions;
   final ValueChanged<String>? onNoteTap;
-
-  /// NEW: notifies the parent of the actual drawn content height (in logical px)
   final ValueChanged<double>? onComputedHeight;
 
   const FretboardWidget({
     Key? key,
     required this.rootNote,
     required this.scaleNotes,
+    this.positions,
     this.onNoteTap,
-    this.onComputedHeight, // NEW
+    this.onComputedHeight,
   }) : super(key: key);
 
   @override
@@ -52,7 +54,7 @@ class _FretboardWidgetState extends State<FretboardWidget> {
       builder: (ctx, _ignored, wF, hF) {
         final mq = MediaQuery.of(ctx);
         final isPortraitMobile = _isMobile && mq.orientation == Orientation.portrait;
-        final isLandscapeMobile = _isMobile && mq.orientation == Orientation.landscape;
+        // final isLandscapeMobile = _isMobile && mq.orientation == Orientation.landscape; // (unused)
 
         // Uniform scale to preserve original aspect ratio from your design factors.
         final scale = math.min(wF, hF);
@@ -93,7 +95,10 @@ class _FretboardWidgetState extends State<FretboardWidget> {
 
             // 4) Strings/colors/octaves (UI order high→low)
             final uiStrings = openStrings.reversed.toList();
-            final borderColors = uiStrings.map(getNoteColor).toList();
+
+            // ✅ Use AppSettings-backed colors
+            final List<Color> borderColors = uiStrings.map((s) => noteColor(ctx, s)).toList();
+
             const openStringOctaves = [2, 2, 3, 3, 3, 4];
             final uiStringOctaves = openStringOctaves.reversed.toList();
 
@@ -125,9 +130,12 @@ class _FretboardWidgetState extends State<FretboardWidget> {
               },
               arabicLabels: arabicLabels,
               romanLabels: romanLabels,
+              positions: widget.positions,
             );
 
-            // 7) Inlays
+            // 7) Inlays — now driven by AppSettings
+            final inlayColor = AppSettingsScope.of(ctx).inlayDotColor;
+
             Widget inlayLayer({
               required double width,
               required double height,
@@ -146,6 +154,7 @@ class _FretboardWidgetState extends State<FretboardWidget> {
                       tileTotalWidths: tileTotalWidths,
                       rowHeight: rowHeight,
                       strings: strings,
+                      dotColor: inlayColor, // ← NEW
                     ),
                   ),
                 ),

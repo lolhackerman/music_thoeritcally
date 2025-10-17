@@ -3,8 +3,8 @@
 // ============================
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show Color; // for Color type
-import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart' as styles;
+import 'package:flutter/material.dart' show BuildContext, Color; // need BuildContext for AppSettingsScope
+import 'package:music_theoretically/state/app_settings.dart'; // ⬅️ adjust path to your app_settings.dart
 
 /// Note names used across the app. Keep enharmonics simple for v1.
 const List<String> kChromatic = [
@@ -20,6 +20,15 @@ String _pcAt(String openNote, int absFret) {
   final base = _noteIndex(openNote);
   if (base < 0) return openNote; // fallback if unknown
   return kChromatic[(base + absFret) % 12];
+}
+
+/// Calculates the notes in a chord given a root note and quality
+Set<String> getChordNotes(String root, List<int> intervals) {
+  final rootIndex = _noteIndex(root);
+  if (rootIndex < 0) return {};
+  return intervals
+      .map((i) => kChromatic[(rootIndex + (i % 12)) % 12])
+      .toSet();
 }
 
 /// Chord qualities we’ll support initially. Extend as needed.
@@ -135,26 +144,29 @@ List<String?> pitchClassesForVoicing(
   return pc;
 }
 
-/// Fill color for a note using your global palette.
-Color colorForNote(String? note) {
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Colors — rely ONLY on AppSettings
+/// ─────────────────────────────────────────────────────────────────────────────
+
+/// UI-friendly resolver (when you have a BuildContext).
+Color colorForNote(BuildContext context, String? note) {
   if (note == null) return const Color(0xFF999999);
-  try {
-    return styles.getNoteColor(note);
-  } catch (_) {
-    return const Color(0xFF777777);
-  }
+  return AppSettingsScope.of(context).colorFor(note);
+}
+
+/// Non-UI resolver (when you already hold an AppSettings instance).
+Color colorForNoteFromSettings(AppSettings settings, String? note) {
+  if (note == null) return const Color(0xFF999999);
+  return settings.colorFor(note);
 }
 
 /// Text color chosen for legibility against the note’s fill color.
-/// If the fill is bright (high luminance), use dark text; else use white.
-Color textColorForNote(String? note) {
-  final bg = colorForNote(note);
-  // WCAG-ish heuristic threshold: ~0.5 works well for your palette.
+Color textColorForNote(BuildContext context, String? note) {
+  final bg = colorForNote(context, note);
   return bg.computeLuminance() > 0.5 ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
 }
 
 /// --- Seed Data (example) -------------------------------------------------
-/// A small starter set so the gallery renders immediately.
 const ChordDefinition seedCmaj = ChordDefinition(
   root: 'C',
   quality: ChordQuality.maj,

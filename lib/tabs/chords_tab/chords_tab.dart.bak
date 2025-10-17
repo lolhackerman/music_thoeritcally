@@ -1,4 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:fluclass _ChordsTabState extends State<ChordsTab>
+    with AutomaticKeepAliveClientMixin<ChordsTab> {
+  @override
+  bool get wantKeepAlive => true;
+
+  final _stackKey = GlobalKey();
+  final _fretboardKey = GlobalKey();rial.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_widget.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart' as styles;
 import 'package:music_theoretically/widgets/fretboard/fretboard_viewport.dart' as fbv;
@@ -10,7 +16,7 @@ import 'chord_diagram.dart';
 import 'chord_formulas.dart';
 
 class ChordsTab extends StatefulWidget {
-  final GlobalKey? bottomBarKey;
+  final GlobalKey? bottomBarKey; // pass your TabBar/BottomNav key if you have it
   const ChordsTab({super.key, this.bottomBarKey});
 
   @override
@@ -25,13 +31,13 @@ class _ChordsTabState extends State<ChordsTab>
   final _stackKey = GlobalKey();
   final _fretboardKey = GlobalKey();
 
-  final List<String> _chromatic = styles.chromatic;
+  late final List<String> _chromatic = styles.chromatic;
   String _root = 'C';
   String _quality = 'maj';
 
   ChordDefinition? _currentChord;
   int _selectedVoicingIndex = 0;
-  double? _fretboardContentHeight;
+  final List<String> _chromatic = styles.chromatic;
 
   List<FretPosition> _getVoicingPositions() {
     if (_currentChord == null) return [];
@@ -89,6 +95,17 @@ class _ChordsTabState extends State<ChordsTab>
     return positions;
   }
 
+  // actual drawn height of the fretboard content (provided by FretboardWidget)
+  double? _fretboardContentHeight;
+
+
+
+  @override
+  void initState() {
+    super.initState();
+    _applyChordSelection();
+  }
+
   ChordDefinition? _chordDefFor(String root, String quality) {
     if (root == 'C' && quality == 'maj') return seedCmaj;
     return null; // TODO: wire in your library lookup
@@ -97,12 +114,6 @@ class _ChordsTabState extends State<ChordsTab>
   void _applyChordSelection() {
     _currentChord = _chordDefFor(_root, _quality);
     _selectedVoicingIndex = 0;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _applyChordSelection();
   }
 
   @override
@@ -136,7 +147,9 @@ class _ChordsTabState extends State<ChordsTab>
                   .clamp(0.0, kStripMax);
 
           // Give the top band a small floor so selectors never disappear
-          final stripHeight = freeSpace.clamp(56.0, kStripMax);
+          final stripHeight =
+              freeSpace
+                  .clamp(56.0, kStripMax);
 
           return SizedBox.expand(
             child: Stack(
@@ -155,7 +168,7 @@ class _ChordsTabState extends State<ChordsTab>
                       child: FretboardWidget(
                         key: _fretboardKey,
                         rootNote: _root,
-                        scaleNotes: chordFormulas.isEmpty ? [] : getChordNotes(_root, chordFormulas[_quality]!).toList(),
+                        scaleNotes: [],  // No more full-board highlighting
                         positions: _getVoicingPositions(),
                         onComputedHeight: (h) {
                           if (_fretboardContentHeight != h) {
@@ -275,7 +288,7 @@ class _ChordsTabState extends State<ChordsTab>
                                   onTap: () {
                                     setState(() {
                                       _selectedVoicingIndex = i;
-                                      // This triggers fretboard update through rebuild
+                                      // Tap selects which mini diagram is highlighted (no overlay)
                                     });
                                   },
                                 ),

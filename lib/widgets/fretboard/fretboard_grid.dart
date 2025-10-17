@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart';
+import 'package:music_theoretically/widgets/fretboard/fret_position.dart';
 import 'package:music_theoretically/widgets/note_tile.dart';
 
 class FretboardGrid extends StatelessWidget {
@@ -15,6 +16,7 @@ class FretboardGrid extends StatelessWidget {
   final List<int> uiStringOctaves;
   final String rootNote;
   final List<String> scaleNotes;
+  final List<FretPosition>? positions;
   final void Function(String note)? onNoteTap;
   final List<String> arabicLabels;
   final List<String> romanLabels;
@@ -34,6 +36,7 @@ class FretboardGrid extends StatelessWidget {
     required this.onNoteTap,
     required this.arabicLabels,
     required this.romanLabels,
+    this.positions,
   }) : super(key: key);
 
   @override
@@ -143,7 +146,8 @@ class FretboardGrid extends StatelessWidget {
                   width: widths[i],
                   height: tileSize,
                   rootNote: rootNote,
-                  scaleNotes: scaleNotes,
+                  scaleNotes: scaleNotes,  // Pass all scale notes to NoteTile
+                  positions: positions,     // Pass positions to NoteTile
                   orientation: orientation,
                   onTap: () => onNoteTap?.call(fullNote),
                 ),

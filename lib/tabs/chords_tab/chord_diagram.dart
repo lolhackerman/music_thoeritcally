@@ -5,6 +5,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'chord_library.dart';
+import 'package:music_theoretically/state/app_settings.dart'; // ⬅️ adjust path if needed
 
 class ChordDiagram extends StatelessWidget {
   final ChordVoicing voicing;
@@ -26,6 +27,8 @@ class ChordDiagram extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = AppSettingsScope.of(context); // ⬅️ grab once here
+
     final shortest = math.min(width, height);
     final pad = (shortest * 0.05).clamp(2.0, 8.0);
     final radius = (shortest * 0.16).clamp(8.0, 16.0);
@@ -49,6 +52,7 @@ class ChordDiagram extends StatelessWidget {
           painter: _ChordDiagramPainter(
             voicing: voicing,
             showFretNumbers: showFretNumbers,
+            settings: settings, // ⬅️ pass settings to painter
           ),
         ),
       ),
@@ -59,7 +63,13 @@ class ChordDiagram extends StatelessWidget {
 class _ChordDiagramPainter extends CustomPainter {
   final ChordVoicing voicing;
   final bool showFretNumbers;
-  _ChordDiagramPainter({required this.voicing, required this.showFretNumbers});
+  final AppSettings settings; // ⬅️ use settings inside paint
+
+  _ChordDiagramPainter({
+    required this.voicing,
+    required this.showFretNumbers,
+    required this.settings,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -113,7 +123,9 @@ class _ChordDiagramPainter extends CustomPainter {
       if (p.muted) {
         _drawX(canvas, Offset(cx, g.openY), g.markerR, const Color(0xFFEF4444), g.markerStrokeW);
       } else if (isOpen) {
-        _drawOpenO(canvas, Offset(cx, g.openY), g.markerR, colorForNote(pcs[p.stringIndex]), g.markerStrokeW);
+        final note = pcs[p.stringIndex];
+        final col = _colorForNoteFromSettings(note);
+        _drawOpenO(canvas, Offset(cx, g.openY), g.markerR, col, g.markerStrokeW);
       }
     }
 
@@ -160,8 +172,8 @@ class _ChordDiagramPainter extends CustomPainter {
       if (p.muted || p.fretRelative <= 0) continue; // open & mute handled above
       final c = Offset(g.strX(p.stringIndex), g.dotCenterY(p.fretRelative));
       final note = pcs[p.stringIndex];
-      final fill = colorForNote(note);
-      final textCol = textColorForNote(note);
+      final fill = _colorForNoteFromSettings(note);
+      final textCol = _legibleTextOn(fill);
       canvas.drawCircle(c, g.dotR, Paint()..color = fill);
 
       if (p.finger != null) {
@@ -181,10 +193,20 @@ class _ChordDiagramPainter extends CustomPainter {
     }
   }
 
+  // --- Helpers that use AppSettings -----------------------------------------
+
+  Color _colorForNoteFromSettings(String? note) {
+    return colorForNoteFromSettings(settings, note);
+  }
+
+  Color _legibleTextOn(Color bg) =>
+      bg.computeLuminance() > 0.5 ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+
   @override
-  bool shouldRepaint(covariant _ChordDiagramPainter oldDelegate) {
-    return oldDelegate.voicing != voicing ||
-        oldDelegate.showFretNumbers != showFretNumbers;
+  bool shouldRepaint(covariant _ChordDiagramPainter old) {
+    return old.voicing != voicing ||
+        old.showFretNumbers != showFretNumbers ||
+        old.settings != settings; // repaint when palette changes
   }
 
   void _drawX(Canvas canvas, Offset c, double r, Color color, double strokeW) {

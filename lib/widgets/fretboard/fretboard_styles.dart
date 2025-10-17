@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:ui' as ui;
 
+// ⬅️ Rely ONLY on AppSettings for colors
+import 'package:music_theoretically/state/app_settings.dart';
+
 /// ─────────────────────────────────────────────────────────────────────────────
 /// Global design tokens and constants
 /// ─────────────────────────────────────────────────────────────────────────────
@@ -26,9 +29,6 @@ class AppTextStyles {
   );
 
   /// NOTE LETTERS (stroke + fill)
-  /// Use [outlinedNoteText] below to render cleanly without ghosting.
-  ///
-  /// We keep these builders public so you can use them directly if needed.
   static TextStyle noteStrokeStyle({
     required double fontSize,
     FontWeight weight = FontWeight.w600,
@@ -40,7 +40,6 @@ class AppTextStyles {
       fontWeight: weight,
       height: 1.0,
       letterSpacing: 0.0,
-      // Draw the outline from the glyph path
       foreground: Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
@@ -72,21 +71,12 @@ class AppTextStyles {
   );
 }
 
-/// Convenience widget to render a note (e.g., "G#", "D#", "B") with a crisp
-/// outline + fill using the SAME glyph metrics, with pixel-snapped size.
-/// This eliminates the faint “shadow” you were seeing when zoomed in.
+/// Convenience widget to render a note with crisp outline + fill.
 class OutlinedNoteText extends StatelessWidget {
   final String text;
-
-  /// Pass the tile height you’re using; font size scales from it.
   final double tileHeight;
-
-  /// Fraction of tileHeight for font size (snapped to whole px).
   final double sizeFactor;
-
-  /// Stroke width as a fraction of font size.
   final double strokeFactor;
-
   final FontWeight weight;
   final Color strokeColor;
   final Color fillColor;
@@ -106,7 +96,6 @@ class OutlinedNoteText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Snap to whole pixels to avoid subpixel blur/halos.
     final fs = (tileHeight * sizeFactor).floorToDouble();
     final sw = (fs * strokeFactor).clamp(1.5, 3.0);
 
@@ -122,7 +111,6 @@ class OutlinedNoteText extends StatelessWidget {
       color: fillColor,
     );
 
-    // Two Text widgets with identical metrics: one stroked, one filled.
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -167,17 +155,28 @@ const List<String> romanNumerals = [
   'X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'
 ];
 
-Color getNoteColor(String note) {
-  switch (note) {
-    case 'C': return Colors.orange.shade800;
-    case 'D': return Colors.red.shade800;
-    case 'E': return Colors.purple.shade800;
-    case 'F': return Colors.blue.shade800;
-    case 'G': return Colors.green.shade900; // already dark, kept same
-    case 'A': return Colors.lightGreen.shade800;
-    case 'B': return Colors.yellow.shade800;
-    default: return Colors.grey.shade700;
-  }
+/// ─────────────────────────────────────────────────────────────────────────────
+/// NOTE COLORS — single source of truth = AppSettings
+/// ─────────────────────────────────────────────────────────────────────────────
+
+/// Use this everywhere in UI to fetch a note's color.
+/// This will assert if AppSettingsScope is not in the tree — by design,
+/// since we now rely ONLY on AppSettings.
+Color noteColor(BuildContext context, String note) {
+  return AppSettingsScope.of(context).colorFor(note);
+}
+
+/// Helper for sharps: returns the base and next-natural colors from AppSettings.
+/// Example: 'C#' → (C, D); 'F#' → (F, G); Naturals return (nat, nextNat).
+AccidentalPair sharpGradientColors(BuildContext context, String note) {
+  final settings = AppSettingsScope.of(context);
+  final isSharp = note.contains('#') || note.contains('b'); // treat flats too
+  final baseNat = isSharp ? note[0] : note;                  // e.g., C from C#
+  final nextNat = nextNoteLetter(baseNat);                   // e.g., D after C
+  return AccidentalPair(
+    settings.colorFor(baseNat),
+    settings.colorFor(nextNat),
+  );
 }
 
 const _noteOrder = ['C','D','E','F','G','A','B'];
@@ -249,23 +248,27 @@ class InlayDotPainter extends CustomPainter {
   final double rowHeight;
   final List<String> strings;
 
+  // NEW: customizable color from AppSettings
+  final Color dotColor;
+
   const InlayDotPainter({
     required this.tileTotalWidths,
     required this.rowHeight,
     required this.strings,
+    required this.dotColor, // ← new required param
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppColors.inlayDot;
+    final paint = Paint()..color = dotColor; // ← use injected color
     const singleFrets = [3, 5, 7, 9, 15, 17, 19, 21];
     const doubleFret = 12;
     double cumX = tileTotalWidths[0];
 
     for (var i = 1; i < tileTotalWidths.length; i++) {
       final w = tileTotalWidths[i];
-      final centerX = (cumX + w / 2).roundToDouble(); // pixel-snap center
-      final fretIndex = i - 1;  // Shift to account for extra string-number column
+      final centerX = (cumX + w / 2).roundToDouble();
+      final fretIndex = i - 1;
       final radius = (rowHeight * 0.2).clamp(4.0, 12.0);
 
       void drawBetween(String a, String b) {
@@ -291,11 +294,13 @@ class InlayDotPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant InlayDotPainter old) =>
       old.rowHeight != rowHeight ||
+      dotColor != old.dotColor || // ← repaint when color changes
       !listEquals(old.tileTotalWidths, tileTotalWidths) ||
       !listEquals(old.strings, strings);
 }
 
-/// Diagonal gradient for sharps. (Unchanged logic; just kept tidy.)
+
+/// Diagonal gradient for sharps (paint with two colors from AppSettings).
 class GradientSharpNotePainter extends CustomPainter {
   final Color baseColor;
   final Color nextColor;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'; // for listEquals
 import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart';
 import 'package:music_theoretically/state/app_settings.dart';
+import 'package:music_theoretically/widgets/fretboard/fret_position.dart';
 
 class NoteTile extends StatefulWidget {
   final String note;
@@ -11,6 +12,7 @@ class NoteTile extends StatefulWidget {
   final List<String> scaleNotes;
   final VoidCallback? onTap;
   final Orientation orientation;
+  final List<FretPosition>? positions;
 
   const NoteTile({
     Key? key,
@@ -21,6 +23,7 @@ class NoteTile extends StatefulWidget {
     required this.scaleNotes,
     this.onTap,
     required this.orientation,
+    this.positions,
   }) : super(key: key);
 
   @override
@@ -89,22 +92,25 @@ class _NoteTileState extends State<NoteTile> with SingleTickerProviderStateMixin
     final baseNat = isSharp ? note[0] : note;
     final nextNat = nextNoteLetter(baseNat);
 
-    // Prefer global settings; fall back to the legacy fixed palette
-    Color pick(String n) =>
-        _settings?.colorFor(n) ?? getNoteColor(n);
+    Color pick(String n) => _settings?.colorFor(n) ?? Colors.grey.shade700;
+
 
     _baseStart = pick(isSharp ? baseNat : note);
     _baseEnd   = isSharp ? pick(nextNat) : _baseStart;
 
-    // De-emphasis for out-of-scale (except root)
+          // Keep full brightness if this is a position-specific note
+    final positions = widget.positions;
+    final hasPositions = positions != null && positions.isNotEmpty;
+    final isPositioned = hasPositions && positions?.any((p) => p.note == note) == true;
+
+    // De-emphasis for out-of-scale (except root and positioned notes)
     if (widget.scaleNotes.length > 1 &&
         note != widget.rootNote &&
-        !widget.scaleNotes.contains(note)) {
+        !widget.scaleNotes.contains(note) &&
+        !isPositioned) {
       _baseStart = dimColor(_baseStart);
       _baseEnd   = dimColor(_baseEnd);
-    }
-
-    // “Tap brighten” source colors (tween from bright -> base on tap)
+    }    // “Tap brighten” source colors (tween from bright -> base on tap)
     final hslStart = HSLColor.fromColor(_baseStart);
     final hslEnd   = HSLColor.fromColor(_baseEnd);
     _brightStart = hslStart.withLightness(
@@ -147,6 +153,12 @@ class _NoteTileState extends State<NoteTile> with SingleTickerProviderStateMixin
           final isRoot = note == widget.rootNote;
           final inScale = widget.scaleNotes.contains(note);
           final doHighlight = widget.scaleNotes.length > 1;
+          
+          // Check if this position is part of the selected positions
+          final isPositioned = widget.positions?.any((pos) => pos.note == note) ?? false;
+
+          // Highlight for both scale notes and positioned notes
+          final shouldHighlight = doHighlight && (inScale || isPositioned);
 
           // Sizing heuristics
           final base = widget.height;
@@ -158,18 +170,24 @@ class _NoteTileState extends State<NoteTile> with SingleTickerProviderStateMixin
           final ringRoot  = rootTarget.clamp(2.0, 4.5).toDouble();
           final ringIn    = inTarget.clamp(1.2, 3.0).toDouble();
 
+        
           // Chosen ring thickness (fully inside the tile)
           double ringThickness = 0.0;
           Color? ringColor;
           if (doHighlight) {
-            if (isRoot) {
-              ringColor = AppColors.rootOutline;
-              ringThickness = ringRoot;
-            } else if (inScale) {
-              ringColor = AppColors.inScaleOutline;
-              ringThickness = ringIn;
-            }
+            final s = _settings;
+            final rootColor    = s?.highlightRootColor    ?? kDefaultHighlightRootColor;
+            final inScaleColor = s?.highlightInScaleColor ?? kDefaultHighlightInScaleColor;
+
+            ringColor = isRoot
+                ? rootColor
+                : (inScale ? inScaleColor : null);
+
+            ringThickness = isRoot
+                ? ringRoot
+                : (inScale ? ringIn : 0.0);
           }
+
 
           // Keep label away from the ring
           final double labelPad =
