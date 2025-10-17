@@ -24,7 +24,7 @@ class NoteColorTile extends StatelessWidget {
     final vPad = 12.0 * scale;
     final dot = 24.0 * scale;
     final icon = 18.0 * scale;
-    final fontSize = 16.0 * scale;  // Increased for consistency
+    final fontSize = 16.0;  // Fixed font size to match chord selectors
 
     return Material(
       clipBehavior: Clip.antiAlias,
@@ -86,7 +86,7 @@ class HighlightColorTile extends StatelessWidget {
     final vPad = 12.0 * scale;
     final dotW = 24.0 * scale;
     final icon = 18.0 * scale;
-    final fontSize = 16.0 * scale;  // Using consistent font size across all buttons
+    final fontSize = 16.0;  // Fixed font size to match other selectors
     final stroke = (dotW * 0.18).clamp(2.0, 4.0);
 
     return Material(

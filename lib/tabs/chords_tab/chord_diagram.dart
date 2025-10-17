@@ -160,20 +160,7 @@ class _ChordDiagramPainter extends CustomPainter {
           ..color = col.withOpacity(0.9),
       );
 
-      if (b.finger != null) {
-        final tp = TextPainter(
-          text: TextSpan(
-            text: '${b.finger}',
-            style: TextStyle(
-              fontSize: g.fingerFont,
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(canvas, Offset((x1 + x2) / 2 - tp.width / 2, y - tp.height / 2));
-      }
+      // Removed finger number display for barres
     }
 
     // Fretted dots
