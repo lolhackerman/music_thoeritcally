@@ -41,9 +41,9 @@ class NaturalsPaletteSection extends StatelessWidget {
           itemCount: kNaturalNotes.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3, // layout: 3 columns, 3-3-1 visually
-            childAspectRatio: isLandscape ? 2.1 : 1.9,
-            mainAxisSpacing: isLandscape ? 10 : 12,
-            crossAxisSpacing: isLandscape ? 10 : 12,
+            childAspectRatio: isLandscape ? 4.0 : 3.8,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
           ),
           itemBuilder: (context, i) {
             final note = kNaturalNotes[i];
@@ -107,9 +107,9 @@ class HighlightColorsSection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: isLandscape ? 2 : 1,
-            childAspectRatio: isLandscape ? 3.0 : 3.2,
-            mainAxisSpacing: isLandscape ? 10 : 12,
-            crossAxisSpacing: isLandscape ? 10 : 12,
+            childAspectRatio: isLandscape ? 4.0 : 3.8,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
           ),
           children: [
             HighlightColorTile(
@@ -179,6 +179,42 @@ class FretboardMarkersSection extends StatelessWidget {
             ),
             TextButton(onPressed: onReset, child: const Text('Reset')),
           ],
+        ),
+        const SizedBox(height: 8),
+        NoteColorTile(
+          note: 'Roman numerals',
+          color: settings.markerRomanColor,
+          scale: scale,
+          onTap: () async {
+            final picked = await showDialog<Color>(
+              context: context,
+              builder: (_) => ColorPickerDialog(
+                initial: settings.markerRomanColor,
+                title: 'Pick Roman numeral color',
+              ),
+            );
+            if (picked != null) {
+              settings.setMarkerRomanColor(picked);
+            }
+          },
+        ),
+        const SizedBox(height: 8),
+        NoteColorTile(
+          note: 'Numeric frets',
+          color: settings.markerNumericColor,
+          scale: scale,
+          onTap: () async {
+            final picked = await showDialog<Color>(
+              context: context,
+              builder: (_) => ColorPickerDialog(
+                initial: settings.markerNumericColor,
+                title: 'Pick numeric fret color',
+              ),
+            );
+            if (picked != null) {
+              settings.setMarkerNumericColor(picked);
+            }
+          },
         ),
         const SizedBox(height: 8),
         NoteColorTile(

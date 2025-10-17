@@ -19,12 +19,12 @@ class NoteColorTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final lighterThanBg = scheme.surfaceContainerHighest;
 
-    final radius = 16.0 * scale;
+    final radius = 12.0 * scale;
     final hPad = 12.0 * scale;
-    final vPad = 10.0 * scale;
-    final dot = 22.0 * scale;
+    final vPad = 12.0 * scale;
+    final dot = 24.0 * scale;
     final icon = 18.0 * scale;
-    final fontSize = 16.0 * scale;
+    final fontSize = 16.0 * scale;  // Increased for consistency
 
     return Material(
       clipBehavior: Clip.antiAlias,
@@ -81,12 +81,12 @@ class HighlightColorTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final lighterThanBg = scheme.surfaceContainerHighest;
 
-    final radius = 16.0 * scale;
+    final radius = 12.0 * scale;
     final hPad = 12.0 * scale;
-    final vPad = 10.0 * scale;
-    final dotW = 28.0 * scale;
+    final vPad = 12.0 * scale;
+    final dotW = 24.0 * scale;
     final icon = 18.0 * scale;
-    final fontSize = 16.0 * scale;
+    final fontSize = 16.0 * scale;  // Using consistent font size across all buttons
     final stroke = (dotW * 0.18).clamp(2.0, 4.0);
 
     return Material(
@@ -254,6 +254,7 @@ class HintCard extends StatelessWidget {
         'Sharps/flats derive from neighboring naturals (e.g., C# uses C→D). '
         'Any widget that renders notes should read colors via AppSettingsScope. '
         'Highlight colors control the ring for root and in-scale notes.',
+        style: TextStyle(fontSize: 16.0),
       ),
     );
   }

@@ -33,8 +33,11 @@ class SettingsTab extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             FretboardMarkersSection(
-              onReset: settings.resetInlayDotColor,
-              scale: scale,
+              onReset: () {
+                settings.resetInlayDotColor();
+                settings.resetMarkerColors();
+              },
+              scale: isLandscape ? 1.3 : 1.5,
             ),
             const SizedBox(height: 24),
             const HintCard(),

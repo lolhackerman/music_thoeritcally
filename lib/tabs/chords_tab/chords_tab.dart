@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_widget.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart' as styles;
 import 'package:music_theoretically/widgets/fretboard/fretboard_viewport.dart' as fbv;
-import 'package:music_theoretically/widgets/fretboard/fret_position.dart';
+import 'package:music_theoretically/widgets/fretboard/fret_spot.dart';
 import 'package:music_theoretically/widgets/responsive_layout.dart';
 
 import 'chord_library.dart';
@@ -23,8 +23,6 @@ class _ChordsTabState extends State<ChordsTab>
   bool get wantKeepAlive => true;
 
   final _stackKey = GlobalKey();
-  final _fretboardKey = GlobalKey();
-
   final List<String> _chromatic = styles.chromatic;
   String _root = 'C';
   String _quality = 'maj';
@@ -33,65 +31,64 @@ class _ChordsTabState extends State<ChordsTab>
   int _selectedVoicingIndex = 0;
   double? _fretboardContentHeight;
 
-  List<FretPosition> _getVoicingPositions() {
-    if (_currentChord == null) return [];
-    final voicings = _currentChord!.voicings;
-    if (_selectedVoicingIndex >= voicings.length) return [];
-    final voicing = voicings[_selectedVoicingIndex];
+  List<FretSpot>? _getSelectedSpots() {
+    if (_currentChord == null || _selectedVoicingIndex >= _currentChord!.voicings.length) {
+      return null;
+    }
     
-    List<FretPosition> positions = [];
+    final voicing = _currentChord!.voicings[_selectedVoicingIndex];
+    final spots = <FretSpot>[];
     
-    // Convert positions in the voicing to FretPositions
+    // Get the root note pitch class for comparison
+    final rootPitchClass = _root;
+    
     for (final pos in voicing.positions) {
-      if (pos.muted) continue;
+      if (pos.muted) {
+        continue;
+      }
       
-      // Convert relative fret to absolute
-      final absFret = relativeToAbsoluteFret(
+      // Convert relative fret to absolute fret position
+      final absoluteFret = relativeToAbsoluteFret(
         baseFret: voicing.baseFret,
-        fretRelative: pos.fretRelative
+        fretRelative: pos.fretRelative,
       );
-      
-      // Get the note at this position
+
+      // Calculate the note at this position using the tuning
       final openNote = kStandardTuning[pos.stringIndex];
-      final base = _chromatic.indexOf(openNote);
-      final note = base >= 0 ? _chromatic[(base + absFret) % 12] : openNote;
+      final noteAtPosition = _pcAt(openNote, absoluteFret);
       
-      positions.add(FretPosition(
-        stringIndex: pos.stringIndex,
-        fret: absFret,
-        note: note
+      // Check if this note is the root note
+      final isRoot = noteAtPosition == rootPitchClass;      // Add the spot, marking root notes appropriately
+      spots.add(FretSpot(
+        string: pos.stringIndex,
+        fret: absoluteFret,
+        isRoot: isRoot,
       ));
     }
     
-    // Add barre positions if any
-    for (final barre in voicing.barres) {
-      for (int s = barre.fromString; s <= barre.toStringIndex; s++) {
-        // Skip if string already has a position
-        if (positions.any((p) => p.stringIndex == s)) continue;
-        
-        final absFret = relativeToAbsoluteFret(
-          baseFret: voicing.baseFret,
-          fretRelative: barre.fretRelative
-        );
-        
-        final openNote = kStandardTuning[s];
-        final base = _chromatic.indexOf(openNote);
-        final note = base >= 0 ? _chromatic[(base + absFret) % 12] : openNote;
-        
-        positions.add(FretPosition(
-          stringIndex: s,
-          fret: absFret,
-          note: note
-        ));
-      }
-    }
-    
-    return positions;
+    return spots;
+  }
+
+  String _pcAt(String openNote, int absFret) {
+    final base = kChromatic.indexOf(openNote);
+    if (base < 0) return openNote;  // fallback if unknown
+    return kChromatic[(base + absFret) % 12];
   }
 
   ChordDefinition? _chordDefFor(String root, String quality) {
-    if (root == 'C' && quality == 'maj') return seedCmaj;
-    return null; // TODO: wire in your library lookup
+    // Convert quality string to enum (e.g., 'maj' -> ChordQuality.maj)
+    ChordQuality? qualityEnum;
+    try {
+      qualityEnum = ChordQuality.values.firstWhere(
+        (q) => q.toString().split('.').last == quality,
+      );
+    } catch (_) {
+      print('Unknown chord quality: $quality');
+      return null;
+    }
+    
+    // Look up in the chord library
+    return chordLibrary[root]?[qualityEnum];
   }
 
   void _applyChordSelection() {
@@ -153,10 +150,10 @@ class _ChordsTabState extends State<ChordsTab>
                     debugGutters: false,
                     child: RepaintBoundary(
                       child: FretboardWidget(
-                        key: _fretboardKey,
+                        key: ValueKey('$_root-$_quality-$_selectedVoicingIndex'),
                         rootNote: _root,
-                        scaleNotes: chordFormulas.isEmpty ? [] : getChordNotes(_root, chordFormulas[_quality]!).toList(),
-                        positions: _getVoicingPositions(),
+                        scaleNotes: [], // Don't pass any scale notes - we'll use selectedSpots
+                        selectedSpots: _getSelectedSpots(),
                         onComputedHeight: (h) {
                           if (_fretboardContentHeight != h) {
                             setState(() => _fretboardContentHeight = h);

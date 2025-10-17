@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart';
 import 'package:music_theoretically/widgets/fretboard/fret_position.dart';
+import 'package:music_theoretically/widgets/fretboard/fret_spot.dart';
 import 'package:music_theoretically/widgets/note_tile.dart';
 
 class FretboardGrid extends StatelessWidget {
@@ -17,6 +18,7 @@ class FretboardGrid extends StatelessWidget {
   final String rootNote;
   final List<String> scaleNotes;
   final List<FretPosition>? positions;
+  final List<FretSpot>? selectedSpots;
   final void Function(String note)? onNoteTap;
   final List<String> arabicLabels;
   final List<String> romanLabels;
@@ -37,6 +39,7 @@ class FretboardGrid extends StatelessWidget {
     required this.arabicLabels,
     required this.romanLabels,
     this.positions,
+    this.selectedSpots,
   }) : super(key: key);
 
   @override
@@ -57,6 +60,7 @@ class FretboardGrid extends StatelessWidget {
                 height: tileSize,
                 orientation: orientation,
                 textTurns: orientation == Orientation.portrait ? 3 : 0,
+                isRomanNumeral: false,
               ),
             );
           }).toList(),
@@ -139,17 +143,41 @@ class FretboardGrid extends StatelessWidget {
               final octaveOffset = semitoneIndex ~/ chromatic.length;
               final fullNote = '$noteName${openOctave + octaveOffset}';
 
+              // Determine if this spot is selected
+              bool isSelected = false;
+              bool isSelectedRoot = false;
+              
+              final spots = selectedSpots;
+              if (spots != null) {
+                // Convert UI string index (high->low) to internal string index (low->high)
+                final stringIdx = (uiStrings.length - 1) - rowIndex;
+                
+                // Check if this spot is in the selected spots list
+                for (final spot in spots) {
+                  // For open strings, fretIndex is -1 while spot.fret will be 0
+                  if (spot.string == stringIdx && ((fretIndex == -1 && spot.fret == 0) || spot.fret == fretIndex)) {
+                    isSelected = true;
+                    isSelectedRoot = spot.isRoot;
+                    break;
+                  }
+                }
+              }
+
               return Padding(
                 padding: EdgeInsets.all(margin),
                 child: NoteTile(
+                  key: ValueKey('${rowIndex}-${fretIndex}-$isSelected-$isSelectedRoot'),
                   note: noteName,
                   width: widths[i],
                   height: tileSize,
                   rootNote: rootNote,
-                  scaleNotes: scaleNotes,  // Pass all scale notes to NoteTile
-                  positions: positions,     // Pass positions to NoteTile
+                  scaleNotes: scaleNotes,  
+                  positions: positions,     
                   orientation: orientation,
                   onTap: () => onNoteTap?.call(fullNote),
+                  isSelected: isSelected,
+                  isSelectedRoot: isSelectedRoot,
+                  isChordMode: selectedSpots?.isNotEmpty ?? false,
                 ),
               );
             }),
@@ -169,6 +197,7 @@ class FretboardGrid extends StatelessWidget {
                 height: tileSize,
                 orientation: orientation,
                 textTurns: orientation == Orientation.portrait ? 3 : 0,
+                isRomanNumeral: true,
               ),
             );
           }).toList(),

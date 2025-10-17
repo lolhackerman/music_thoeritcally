@@ -13,6 +13,9 @@ class NoteTile extends StatefulWidget {
   final VoidCallback? onTap;
   final Orientation orientation;
   final List<FretPosition>? positions;
+  final bool isSelected; // new property for exact spot highlighting
+  final bool isSelectedRoot; // new property for showing root highlights
+  final bool isChordMode; // Whether we're in chord selection mode (true = dim non-selected)
 
   const NoteTile({
     Key? key,
@@ -24,6 +27,9 @@ class NoteTile extends StatefulWidget {
     this.onTap,
     required this.orientation,
     this.positions,
+    this.isSelected = false,
+    this.isSelectedRoot = false,
+    this.isChordMode = false,
   }) : super(key: key);
 
   @override
@@ -73,8 +79,11 @@ class _NoteTileState extends State<NoteTile> with SingleTickerProviderStateMixin
     final sameNote = oldWidget.note == widget.note;
     final sameRoot = oldWidget.rootNote == widget.rootNote;
     final sameScale = listEquals(oldWidget.scaleNotes, widget.scaleNotes);
+    final sameSelectionState = oldWidget.isSelected == widget.isSelected && 
+                             oldWidget.isSelectedRoot == widget.isSelectedRoot &&
+                             oldWidget.isChordMode == widget.isChordMode;
 
-    if (!sameNote || !sameRoot || !sameScale) {
+    if (!sameNote || !sameRoot || !sameScale || !sameSelectionState) {
       _recalculateColors();
       _controller.value = 1.0;
     }
@@ -100,14 +109,21 @@ class _NoteTileState extends State<NoteTile> with SingleTickerProviderStateMixin
 
           // Keep full brightness if this is a position-specific note
     final positions = widget.positions;
-    final hasPositions = positions != null && positions.isNotEmpty;
-    final isPositioned = hasPositions && positions?.any((p) => p.note == note) == true;
+    final isPositioned = positions != null && 
+                        positions.isNotEmpty && 
+                        positions.any((p) => p.note == note);
 
-    // De-emphasis for out-of-scale (except root and positioned notes)
-    if (widget.scaleNotes.length > 1 &&
+    // Dim in two cases:
+    // 1. When in scale mode and note is not in scale (except root and positioned)
+    // 2. When chord is selected and this note is not in selected spots
+    final inScaleMode = widget.scaleNotes.length > 1;
+    final shouldDimForScale = inScaleMode &&
         note != widget.rootNote &&
         !widget.scaleNotes.contains(note) &&
-        !isPositioned) {
+        !isPositioned;
+    final shouldDimForChord = !widget.isSelected && widget.isChordMode;
+
+    if (shouldDimForScale || shouldDimForChord) {
       _baseStart = dimColor(_baseStart);
       _baseEnd   = dimColor(_baseEnd);
     }    // “Tap brighten” source colors (tween from bright -> base on tap)
@@ -154,14 +170,22 @@ class _NoteTileState extends State<NoteTile> with SingleTickerProviderStateMixin
           final inScale = widget.scaleNotes.contains(note);
           final doHighlight = widget.scaleNotes.length > 1;
           
-          // Check if this position is part of the selected positions
-          final isPositioned = widget.positions?.any((pos) => pos.note == note) ?? false;
-
-          // Highlight for both scale notes and positioned notes
-          final shouldHighlight = doHighlight && (inScale || isPositioned);
-
           // Sizing heuristics
           final base = widget.height;
+
+          // Use the selected spot highlight if present, otherwise fall back to scale/position highlighting
+          bool shouldHighlight;
+          bool shouldHighlightRoot;
+          
+          if (widget.isSelected) {
+            // This tile is part of a selected chord voicing
+            shouldHighlight = true;
+            shouldHighlightRoot = widget.isSelectedRoot;
+          } else {
+            final isPositioned = widget.positions?.any((pos) => pos.note == note) ?? false;
+            shouldHighlight = doHighlight && (inScale || isPositioned);
+            shouldHighlightRoot = isRoot;
+          }
           final isPhone = MediaQuery.of(context).size.shortestSide < 600;
           final deviceFactor = isPhone ? 0.7 : 1.0;
 
@@ -174,18 +198,14 @@ class _NoteTileState extends State<NoteTile> with SingleTickerProviderStateMixin
           // Chosen ring thickness (fully inside the tile)
           double ringThickness = 0.0;
           Color? ringColor;
-          if (doHighlight) {
-            final s = _settings;
-            final rootColor    = s?.highlightRootColor    ?? kDefaultHighlightRootColor;
-            final inScaleColor = s?.highlightInScaleColor ?? kDefaultHighlightInScaleColor;
+          
+          final s = _settings;
+          final rootColor    = s?.highlightRootColor    ?? kDefaultHighlightRootColor;
+          final inScaleColor = s?.highlightInScaleColor ?? kDefaultHighlightInScaleColor;
 
-            ringColor = isRoot
-                ? rootColor
-                : (inScale ? inScaleColor : null);
-
-            ringThickness = isRoot
-                ? ringRoot
-                : (inScale ? ringIn : 0.0);
+          if (shouldHighlight) {
+            ringColor = shouldHighlightRoot ? rootColor : inScaleColor;
+            ringThickness = shouldHighlightRoot ? ringRoot : ringIn;
           }
 
 

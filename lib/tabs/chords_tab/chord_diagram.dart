@@ -18,8 +18,8 @@ class ChordDiagram extends StatelessWidget {
   const ChordDiagram({
     super.key,
     required this.voicing,
-    this.width = 96,
-    this.height = 120,
+    this.width = 92,    // Slightly narrower to prevent touching fret number
+    this.height = 108,  // Shorter now that fret number is beside
     this.selected = false,
     this.onTap,
     this.showFretNumbers = true,
@@ -101,16 +101,23 @@ class _ChordDiagramPainter extends CustomPainter {
       canvas.drawLine(Offset(g.left, g.top), Offset(g.right, g.top), nut);
     }
 
-    // Fret number
+    // Fret number - positioned to the right of first fret
     if (showFretNumbers && voicing.baseFret > 1) {
       final tp = TextPainter(
         text: TextSpan(
           text: '${voicing.baseFret}fr',
-          style: TextStyle(fontSize: g.fretNumFont, color: Colors.white70),
+          style: TextStyle(
+            fontSize: g.fretNumFont, 
+            color: Colors.white70,
+            height: 1.0,  // Tighter line height
+          ),
         ),
         textDirection: TextDirection.ltr,
+        textAlign: TextAlign.left,
       )..layout();
-      tp.paint(canvas, Offset(g.right - tp.width, g.bottom + g.fretNumDy));
+      // Position at the right of the diagram, vertically centered with first fret
+      final textY = g.fretY(0) + ((g.fretY(1) - g.fretY(0)) / 2) - (tp.height / 2);
+      tp.paint(canvas, Offset(g.right + g.fretNumPadding, textY));
     }
 
     // Compute pitch classes per string for color mapping
@@ -121,7 +128,9 @@ class _ChordDiagramPainter extends CustomPainter {
       final cx = g.strX(p.stringIndex);
       final isOpen = p.fretRelative == 0 && !p.muted;
       if (p.muted) {
-        _drawX(canvas, Offset(cx, g.openY), g.markerR, const Color(0xFFEF4444), g.markerStrokeW);
+        final note = pcs[p.stringIndex];
+        final col = _colorForNoteFromSettings(note);
+        _drawX(canvas, Offset(cx, g.openY), g.markerR, col, g.markerStrokeW);
       } else if (isOpen) {
         final note = pcs[p.stringIndex];
         final col = _colorForNoteFromSettings(note);
@@ -181,9 +190,9 @@ class _ChordDiagramPainter extends CustomPainter {
           text: TextSpan(
             text: '${p.finger}',
             style: TextStyle(
-              fontSize: g.dotR * 1.05,
+              fontSize: g.dotR * 1.4,  // Larger numbers to fill the bigger dots
               color: textCol,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,  // Slightly bolder for better readability
             ),
           ),
           textDirection: TextDirection.ltr,
@@ -234,23 +243,23 @@ class _Geom {
   double get shortest => math.min(size.width, size.height);
 
   // Scaled paddings
-  double get hPad => (size.width * 0.10).clamp(4.0, 12.0);
-  double get vPadTop => (size.height * 0.14).clamp(6.0, 16.0);
-  double get vPadBot => (size.height * 0.18).clamp(8.0, 18.0);
+  double get hPad => (size.width * 0.11).clamp(4.0, 12.0);  // Slightly more horizontal padding
+  double get vPadTop => (size.height * 0.12).clamp(8.0, 14.0);  // Less top padding
+  double get vPadBot => (size.height * 0.12).clamp(8.0, 14.0);  // Less bottom padding
 
   // Strokes
   double get gridStrokeW => (shortest * 0.007).clamp(0.8, 1.2);
   double get nutStrokeW  => (shortest * 0.012).clamp(1.2, 2.0);
-  double get markerStrokeW => (shortest * 0.010).clamp(1.1, 1.8);
+  double get markerStrokeW => (shortest * 0.011).clamp(1.2, 2.0);  // Slightly thicker for readability
   double get barreStrokeW  => (shortest * 0.010).clamp(1.0, 1.6);
 
-  // Marker sizes
-  double get markerR => (shortest * 0.08).clamp(3.0, 7.0);
+  // Marker sizes (reduced further)
+  double get markerR => (shortest * 0.05).clamp(2.0, 4.5);  // Smaller markers
 
-  // Fonts
+  // Fonts and text layout
   double get fretNumFont  => (size.height * 0.09).clamp(8.0, 11.0);
   double get fingerFont   => (size.height * 0.10).clamp(9.0, 12.0);
-  double get fretNumDy    => (size.height * 0.015).clamp(1.0, 3.0);
+  double get fretNumPadding => (shortest * 0.08).clamp(6.0, 10.0);  // Increased space between diagram and fret number
 
   // Geometry bounds
   double get left   => hPad;
@@ -265,9 +274,10 @@ class _Geom {
   double fretY(int f) => top + f * fretSpacing;
 
   double dotCenterY(int fretRelative) => fretY(fretRelative) - fretSpacing / 2;
-  double get dotR => math.min(stringSpacing, fretSpacing) * 0.24;
+  // Maximum dot size that won't cause adjacent dots to touch (with small safety margin)
+  double get dotR => stringSpacing * 0.45;  // 45% of string spacing (90% of gap between strings)
 
-  double get openY => top - (markerR * 1.2);
+  double get openY => top - (markerR * 1.8);  // More spacing between markers and nut
 
   // Barre capsule corner radius
   double get barreRadius => (shortest * 0.12).clamp(6.0, 10.0);

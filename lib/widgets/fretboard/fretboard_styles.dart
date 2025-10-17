@@ -215,6 +215,7 @@ class LabelTile extends StatelessWidget {
   final double height;
   final Orientation orientation;
   final int textTurns;
+  final bool isRomanNumeral;
 
   const LabelTile({
     super.key,
@@ -223,10 +224,14 @@ class LabelTile extends StatelessWidget {
     required this.height,
     required this.orientation,
     required this.textTurns,
+    this.isRomanNumeral = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final settings = AppSettingsScope.of(context);
+    final color = isRomanNumeral ? settings.markerRomanColor : settings.markerNumericColor;
+
     return Container(
       width: width,
       height: height,
@@ -235,7 +240,13 @@ class LabelTile extends StatelessWidget {
         quarterTurns: textTurns,
         child: Text(
           label,
-          style: AppTextStyles.label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.normal,
+            color: color,
+            height: 1.0,
+            letterSpacing: 0.0,
+          ),
           textAlign: TextAlign.center,
         ),
       ),

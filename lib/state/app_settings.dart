@@ -30,6 +30,10 @@ const Color kDefaultHighlightInScaleColor  = Color.fromARGB(255, 255, 234, 184);
 /// NEW: default inlay dot color (matches your previous AppColors.inlayDot)
 const Color kDefaultInlayDotColor = Color.fromARGB(255, 35, 34, 34);
 
+/// Default marker colors
+const Color kDefaultMarkerRomanColor = Color.fromARGB(255, 75, 75, 75);
+const Color kDefaultMarkerNumericColor = Color.fromARGB(255, 75, 75, 75);
+
 /// ─────────────────────────────────────────────────────────────────────────────
 /// Global Settings (ChangeNotifier + InheritedNotifier scope)
 /// ─────────────────────────────────────────────────────────────────────────────
@@ -39,11 +43,15 @@ class AppSettings extends ChangeNotifier {
     Map<String, Color>? initial,
     Color highlightRootColor    = kDefaultHighlightRootColor,
     Color highlightInScaleColor = kDefaultHighlightInScaleColor,
-    Color inlayDotColor         = kDefaultInlayDotColor, // ← NEW
+    Color inlayDotColor         = kDefaultInlayDotColor,
+    Color markerRomanColor      = kDefaultMarkerRomanColor,
+    Color markerNumericColor    = kDefaultMarkerNumericColor,
   })  : _naturalColors = Map<String, Color>.from(initial ?? kDefaultNaturalColors),
         _highlightRootColor = highlightRootColor,
         _highlightInScaleColor = highlightInScaleColor,
-        _inlayDotColor = inlayDotColor; // ← NEW
+        _inlayDotColor = inlayDotColor,
+        _markerRomanColor = markerRomanColor,
+        _markerNumericColor = markerNumericColor;
 
   // Note palette
   Map<String, Color> _naturalColors;
@@ -52,8 +60,12 @@ class AppSettings extends ChangeNotifier {
   Color _highlightRootColor;
   Color _highlightInScaleColor;
 
-  // NEW: inlay dot color
+  // Inlay dot color
   Color _inlayDotColor;
+
+  // Marker colors
+  Color _markerRomanColor;
+  Color _markerNumericColor;
 
   /// Read-only colors for Settings UI.
   Map<String, Color> get naturalColors => Map.unmodifiable(_naturalColors);
@@ -117,12 +129,36 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// ── Marker colors API ──────────────────────────────────────────────────────
+  Color get markerRomanColor => _markerRomanColor;
+  Color get markerNumericColor => _markerNumericColor;
+
+  void setMarkerRomanColor(Color c) {
+    if (c == _markerRomanColor) return;
+    _markerRomanColor = c;
+    notifyListeners();
+  }
+
+  void setMarkerNumericColor(Color c) {
+    if (c == _markerNumericColor) return;
+    _markerNumericColor = c;
+    notifyListeners();
+  }
+
+  void resetMarkerColors() {
+    _markerRomanColor = kDefaultMarkerRomanColor;
+    _markerNumericColor = kDefaultMarkerNumericColor;
+    notifyListeners();
+  }
+
   /// Convenience: reset everything
   void resetEverythingToDefaults() {
     _naturalColors = Map<String, Color>.from(kDefaultNaturalColors);
     _highlightRootColor = kDefaultHighlightRootColor;
     _highlightInScaleColor = kDefaultHighlightInScaleColor;
-    _inlayDotColor = kDefaultInlayDotColor; // ← include in reset-all
+    _inlayDotColor = kDefaultInlayDotColor;
+    _markerRomanColor = kDefaultMarkerRomanColor;
+    _markerNumericColor = kDefaultMarkerNumericColor;
     notifyListeners();
   }
 

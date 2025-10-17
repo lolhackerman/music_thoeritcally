@@ -7,6 +7,7 @@ import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart';
 import 'package:music_theoretically/widgets/fretboard/note_audio_player.dart';
 import 'package:music_theoretically/widgets/fretboard/fretboard_grid.dart';
 import 'package:music_theoretically/widgets/fretboard/fret_position.dart';
+import 'package:music_theoretically/widgets/fretboard/fret_spot.dart';
 import 'package:music_theoretically/widgets/responsive_layout.dart';
 import 'package:music_theoretically/state/app_settings.dart';
 
@@ -15,6 +16,7 @@ class FretboardWidget extends StatefulWidget {
   final String rootNote;
   final List<String> scaleNotes;
   final List<FretPosition>? positions;
+  final List<FretSpot>? selectedSpots; // new property for exact spot highlighting
   final ValueChanged<String>? onNoteTap;
   final ValueChanged<double>? onComputedHeight;
 
@@ -23,6 +25,7 @@ class FretboardWidget extends StatefulWidget {
     required this.rootNote,
     required this.scaleNotes,
     this.positions,
+    this.selectedSpots, // new optional parameter
     this.onNoteTap,
     this.onComputedHeight,
   }) : super(key: key);
@@ -131,6 +134,7 @@ class _FretboardWidgetState extends State<FretboardWidget> {
               arabicLabels: arabicLabels,
               romanLabels: romanLabels,
               positions: widget.positions,
+              selectedSpots: widget.selectedSpots,
             );
 
             // 7) Inlays — now driven by AppSettings
