@@ -37,7 +37,7 @@ class SettingsTab extends StatelessWidget {
                 settings.resetInlayDotColor();
                 settings.resetMarkerColors();
               },
-              scale: isLandscape ? 1.3 : 1.5,
+              scale: isLandscape ? 1.0 : 1.2,
             ),
             const SizedBox(height: 24),
             const HintCard(),

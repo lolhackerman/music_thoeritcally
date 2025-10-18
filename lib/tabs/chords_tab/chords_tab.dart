@@ -166,8 +166,8 @@ class _ChordsTabState extends State<ChordsTab>
 
                 // ===== TOP: selectors (left) + chord diagrams (right) =====
                 Positioned(
-                  left: hPad,
-                  right: hPad,
+                  left: viewPad.left,
+                  right: hPad + viewPad.right,
                   top: viewPad.top + kStripVPad,
                   height: stripHeight,
                   child: Row(
@@ -175,7 +175,7 @@ class _ChordsTabState extends State<ChordsTab>
                     children: [
                       // LEFT COLUMN: Root (top) + Quality (bottom)
                       SizedBox(
-                        width: 200, // adjust as needed
+                        width: 100, // adjust as needed
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [

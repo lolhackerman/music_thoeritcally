@@ -41,7 +41,7 @@ class NaturalsPaletteSection extends StatelessWidget {
           itemCount: kNaturalNotes.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3, // layout: 3 columns, 3-3-1 visually
-            childAspectRatio: isLandscape ? 4.0 : 3.8,
+            childAspectRatio: isLandscape ? 4.0 : 2.8, // Reduced ratio for taller tiles in portrait
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
           ),
@@ -107,7 +107,7 @@ class HighlightColorsSection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: isLandscape ? 2 : 1,
-            childAspectRatio: isLandscape ? 4.0 : 3.8,
+            childAspectRatio: isLandscape ? 4.0 : 6, // 3x the naturals ratio since we're using 1 column instead of 3
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
           ),
