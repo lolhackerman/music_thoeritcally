@@ -41,7 +41,7 @@ class NaturalsPaletteSection extends StatelessWidget {
           itemCount: kNaturalNotes.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3, // layout: 3 columns, 3-3-1 visually
-            childAspectRatio: isLandscape ? 4.0 : 2.8, // Reduced ratio for taller tiles in portrait
+            childAspectRatio: isLandscape ? 4.0 : 2.8, // Base ratio for portrait mode
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
           ),
@@ -107,7 +107,7 @@ class HighlightColorsSection extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: isLandscape ? 2 : 1,
-            childAspectRatio: isLandscape ? 4.0 : 6, // 3x the naturals ratio since we're using 1 column instead of 3
+            childAspectRatio: isLandscape ? 6.0 : 6.0, // Higher ratio in landscape for shorter buttons
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
           ),
@@ -165,6 +165,8 @@ class FretboardMarkersSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = AppSettingsScope.of(context);
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,58 +183,67 @@ class FretboardMarkersSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        NoteColorTile(
-          note: 'Roman numerals',
-          color: settings.markerRomanColor,
-          scale: scale,
-          onTap: () async {
-            final picked = await showDialog<Color>(
-              context: context,
-              builder: (_) => ColorPickerDialog(
-                initial: settings.markerRomanColor,
-                title: 'Pick Roman numeral color',
-              ),
-            );
-            if (picked != null) {
-              settings.setMarkerRomanColor(picked);
-            }
-          },
-        ),
-        const SizedBox(height: 8),
-        NoteColorTile(
-          note: 'Numeric frets',
-          color: settings.markerNumericColor,
-          scale: scale,
-          onTap: () async {
-            final picked = await showDialog<Color>(
-              context: context,
-              builder: (_) => ColorPickerDialog(
-                initial: settings.markerNumericColor,
-                title: 'Pick numeric fret color',
-              ),
-            );
-            if (picked != null) {
-              settings.setMarkerNumericColor(picked);
-            }
-          },
-        ),
-        const SizedBox(height: 8),
-        NoteColorTile(
-          note: 'Inlay dot color',
-          color: settings.inlayDotColor,
-          scale: scale,
-          onTap: () async {
-            final picked = await showDialog<Color>(
-              context: context,
-              builder: (_) => ColorPickerDialog(
-                initial: settings.inlayDotColor,
-                title: 'Pick inlay dot color',
-              ),
-            );
-            if (picked != null) {
-              settings.setInlayDotColor(picked);
-            }
-          },
+        GridView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 1,
+            childAspectRatio: isLandscape ? 12.0 : 6.0, // Double the landscape ratio since we're using single column
+            mainAxisSpacing: 8,
+          ),
+          children: [
+            NoteColorTile(
+              note: 'Roman numerals',
+              color: settings.markerRomanColor,
+              scale: scale,
+              onTap: () async {
+                final picked = await showDialog<Color>(
+                  context: context,
+                  builder: (_) => ColorPickerDialog(
+                    initial: settings.markerRomanColor,
+                    title: 'Pick Roman numeral color',
+                  ),
+                );
+                if (picked != null) {
+                  settings.setMarkerRomanColor(picked);
+                }
+              },
+            ),
+            NoteColorTile(
+              note: 'Numeric frets',
+              color: settings.markerNumericColor,
+              scale: scale,
+              onTap: () async {
+                final picked = await showDialog<Color>(
+                  context: context,
+                  builder: (_) => ColorPickerDialog(
+                    initial: settings.markerNumericColor,
+                    title: 'Pick numeric fret color',
+                  ),
+                );
+                if (picked != null) {
+                  settings.setMarkerNumericColor(picked);
+                }
+              },
+            ),
+            NoteColorTile(
+              note: 'Inlay dot color',
+              color: settings.inlayDotColor,
+              scale: scale,
+              onTap: () async {
+                final picked = await showDialog<Color>(
+                  context: context,
+                  builder: (_) => ColorPickerDialog(
+                    initial: settings.inlayDotColor,
+                    title: 'Pick inlay dot color',
+                  ),
+                );
+                if (picked != null) {
+                  settings.setInlayDotColor(picked);
+                }
+              },
+            ),
+          ],
         ),
       ],
     );
