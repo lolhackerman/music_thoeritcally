@@ -71,26 +71,60 @@ class _ScaleSelectorPanelState extends State<ScaleSelectorPanel> {
                 onChanged: (s) { if (s != null) widget.state.selectedScaleVN.value = s; },
               ),
               SizedBox(height: innerSpacing * 4),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: innerSpacing,
-                runSpacing: innerSpacing,
-                children: _rotatedNotes(currentRoot).map((n) {
-                  return SizedBox(
-                    width: innerTile,
-                    height: innerTile,
-                    child: NoteTile(
-                      note: n,
+              // In portrait (when used in the right overlay sidebar) we want a
+              // single stacked column of note tiles. In landscape keep the
+              // previous Wrap behavior.
+              Builder(builder: (ctx) {
+                final ori = MediaQuery.of(ctx).orientation;
+                final notes = _rotatedNotes(currentRoot);
+                if (ori == Orientation.portrait) {
+                  // Single vertical column: each tile full-width of its
+                  // measured size (innerTile) stacked with spacing.
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: notes.map((n) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: innerSpacing),
+                        child: SizedBox(
+                          width: innerTile,
+                          height: innerTile,
+                          child: NoteTile(
+                            note: n,
+                            width: innerTile,
+                            height: innerTile,
+                            rootNote: currentRoot,
+                            scaleNotes: scaleNotes,
+                            onTap: () => widget.state.selectedRootVN.value = n,
+                            orientation: ori,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }
+
+                // Landscape: keep wrap behavior
+                return Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: innerSpacing,
+                  runSpacing: innerSpacing,
+                  children: notes.map((n) {
+                    return SizedBox(
                       width: innerTile,
                       height: innerTile,
-                      rootNote: currentRoot,
-                      scaleNotes: scaleNotes,
-                      onTap: () => widget.state.selectedRootVN.value = n,
-                      orientation: MediaQuery.of(context).orientation,
-                    ),
-                  );
-                }).toList(),
-              ),
+                      child: NoteTile(
+                        note: n,
+                        width: innerTile,
+                        height: innerTile,
+                        rootNote: currentRoot,
+                        scaleNotes: scaleNotes,
+                        onTap: () => widget.state.selectedRootVN.value = n,
+                        orientation: ori,
+                      ),
+                    );
+                  }).toList(),
+                );
+              }),
             ],
           ),
         ),

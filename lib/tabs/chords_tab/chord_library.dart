@@ -178,6 +178,79 @@ List<String?> pitchClassesForVoicing(
   return pc;
 }
 
+// -----------------------
+// Voicing generator (fallback for missing entries)
+// -----------------------
+
+/// Generate simple voicings for a given root and interval set.
+/// This is a best-effort generator used when the seed library doesn't
+/// include explicit shapes (used for diminished triads).
+List<ChordVoicing> _generateVoicingsFor(String root, List<int> intervals,
+  {int maxVoicings = 6, int maxBaseFret = 8}) {
+  final result = <ChordVoicing>[];
+  final targetPcs = getChordNotes(root, intervals);
+
+  // Try a few base frets and search for compact 5-fret-window shapes.
+  for (var base = 1; base <= maxBaseFret && result.length < maxVoicings; base++) {
+    // Backtracking across 6 strings. Options per string: muted, open(0), 1..5
+    void backtrack(int si, List<Position> acc, int playedCount, int? minRel, int? maxRel) {
+      if (result.length >= maxVoicings) return;
+      if (si == 6) {
+        if (playedCount < 3) return;
+
+        final voicing = ChordVoicing(baseFret: base, positions: List.unmodifiable(acc));
+        final pcs = pitchClassesForVoicing(voicing).whereType<String>().toSet();
+        // require that the voicing includes all chord pitch classes
+        if (!targetPcs.every((p) => pcs.contains(p))) return;
+
+        // prefer voicings that contain the root pitch class
+        final rootPresent = pcs.contains(root);
+        if (!rootPresent) return;
+
+        // ensure uniqueness by pitch-class layout
+    if (result.any((r) =>
+      pitchClassesForVoicing(r).whereType<String>().toSet().join(',') == pcs.join(','))) return;
+
+        result.add(voicing);
+        return;
+      }
+
+      // Try muted
+      acc.add(Position(stringIndex: si, fretRelative: 0, muted: true));
+      backtrack(si + 1, acc, playedCount, minRel, maxRel);
+      acc.removeLast();
+
+      // Try open string (0)
+      acc.add(Position(stringIndex: si, fretRelative: 0));
+      final abs0 = _pcAt(kStandardTuning[si], 0);
+      if (targetPcs.contains(abs0)) {
+        backtrack(si + 1, acc, playedCount + 1, minRel, maxRel);
+      }
+      acc.removeLast();
+
+      // Try fretted positions relative 1..5
+      for (var r = 1; r <= 5; r++) {
+        // prune windows larger than 5 frets (relative positions)
+        final newMin = (minRel == null) ? r : (r < minRel ? r : minRel);
+        final newMax = (maxRel == null) ? r : (r > maxRel ? r : maxRel);
+        if (newMax - newMin > 4) continue;
+
+        final abs = relativeToAbsoluteFret(baseFret: base, fretRelative: r);
+        final pc = _pcAt(kStandardTuning[si], abs);
+        if (!targetPcs.contains(pc)) continue;
+
+        acc.add(Position(stringIndex: si, fretRelative: r));
+        backtrack(si + 1, acc, playedCount + 1, newMin, newMax);
+        acc.removeLast();
+      }
+    }
+
+    backtrack(0, <Position>[], 0, null, null);
+  }
+
+  return result;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Colors — rely ONLY on AppSettings
 // ─────────────────────────────────────────────────────────────────────────────
@@ -314,6 +387,264 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
         ),
       ],
     ),
+    // C diminished (curated)
+    ChordQuality.dim: ChordDefinition(
+      root: 'C',
+      quality: ChordQuality.dim,
+      voicings: const [
+        // compact open-ish shape
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 5, finger: 3),
+            Position(stringIndex: 4, fretRelative: 4, finger: 2),
+            Position(stringIndex: 5, fretRelative: 2, finger: 1),
+          ],
+        ),
+        // triad with partial mutes
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 1, finger: 1),
+            Position(stringIndex: 3, fretRelative: 0, muted: true),
+            Position(stringIndex: 4, fretRelative: 1, finger: 1),
+            Position(stringIndex: 5, fretRelative: 2, finger: 2),
+          ],
+        ),
+        // barre-like upper voicing
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 2, finger: 1),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 1, finger: 2),
+            Position(stringIndex: 3, fretRelative: 0, muted: true),
+            Position(stringIndex: 4, fretRelative: 1, finger: 1),
+            Position(stringIndex: 5, fretRelative: 0, muted: true),
+          ],
+        ),
+      ],
+    ),
+  },
+  // ===================== D# CHORDS =====================
+  'D#': {
+    ChordQuality.maj: ChordDefinition(
+      root: 'D#',
+      quality: ChordQuality.maj,
+      voicings: const [
+        // A-shape barre @ 6th: x 6 8 8 8 6
+        ChordVoicing(
+          baseFret: 6,
+          label: 'A-shape @ 6th',
+          barres: [Barre(fromString: 1, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 1, finger: 1),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 4),
+            Position(stringIndex: 4, fretRelative: 3, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+    ChordQuality.min: ChordDefinition(
+      root: 'D#',
+      quality: ChordQuality.min,
+      voicings: const [
+        // Am-shape minor @ 6th: x 6 8 8 7 6
+        ChordVoicing(
+          baseFret: 6,
+          label: 'Am-shape @ 6th',
+          barres: [Barre(fromString: 1, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 1, finger: 1),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 4),
+            Position(stringIndex: 4, fretRelative: 2, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+  },
+
+  // ===================== F# CHORDS =====================
+  'F#': {
+    ChordQuality.maj: ChordDefinition(
+      root: 'F#',
+      quality: ChordQuality.maj,
+      voicings: const [
+        // E-shape barre @ 2nd: 2 4 4 3 2 2 (F#)
+        ChordVoicing(
+          baseFret: 2,
+          label: 'E-shape @ 2nd',
+          barres: [Barre(fromString: 0, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 1, finger: 1),
+            Position(stringIndex: 1, fretRelative: 3, finger: 3),
+            Position(stringIndex: 2, fretRelative: 3, finger: 4),
+            Position(stringIndex: 3, fretRelative: 2, finger: 2),
+            Position(stringIndex: 4, fretRelative: 1, finger: 1),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+    ChordQuality.min: ChordDefinition(
+      root: 'F#',
+      quality: ChordQuality.min,
+      voicings: const [
+        // Em-shape minor @ 2nd: 2 4 4 2 2 2
+        ChordVoicing(
+          baseFret: 2,
+          label: 'Em-shape @ 2nd',
+          barres: [Barre(fromString: 0, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 1, finger: 1),
+            Position(stringIndex: 1, fretRelative: 3, finger: 3),
+            Position(stringIndex: 2, fretRelative: 3, finger: 4),
+            Position(stringIndex: 3, fretRelative: 1, finger: 1),
+            Position(stringIndex: 4, fretRelative: 1, finger: 1),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+  },
+
+  // ===================== G# CHORDS =====================
+  'G#': {
+    ChordQuality.maj: ChordDefinition(
+      root: 'G#',
+      quality: ChordQuality.maj,
+      voicings: const [
+        // A-shape barre @ 1st (x 1 3 3 3 1) moved up: x 1 3 3 3 1 -> baseFret 1 is G# (enharmonic to Ab)
+        ChordVoicing(
+          baseFret: 1,
+          label: 'A-shape @ 1st',
+          barres: [Barre(fromString: 1, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 1, finger: 1),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 4),
+            Position(stringIndex: 4, fretRelative: 3, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+    ChordQuality.min: ChordDefinition(
+      root: 'G#',
+      quality: ChordQuality.min,
+      voicings: const [
+        // Am-shape minor @ 1st: x 1 3 3 2 1
+        ChordVoicing(
+          baseFret: 1,
+          label: 'Am-shape @ 1st',
+          barres: [Barre(fromString: 1, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 1, finger: 1),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 4),
+            Position(stringIndex: 4, fretRelative: 2, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+  },
+
+  // ===================== A# CHORDS =====================
+  'A#': {
+    ChordQuality.maj: ChordDefinition(
+      root: 'A#',
+      quality: ChordQuality.maj,
+      voicings: const [
+        // A-shape barre @ 3rd: x 3 5 5 5 3 (A# / Bb)
+        ChordVoicing(
+          baseFret: 3,
+          label: 'A-shape @ 3rd',
+          barres: [Barre(fromString: 1, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 1, finger: 1),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 4),
+            Position(stringIndex: 4, fretRelative: 3, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+    ChordQuality.min: ChordDefinition(
+      root: 'A#',
+      quality: ChordQuality.min,
+      voicings: const [
+        // Am-shape minor @ 3rd: x 3 5 5 4 3
+        ChordVoicing(
+          baseFret: 3,
+          label: 'Am-shape @ 3rd',
+          barres: [Barre(fromString: 1, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 1, finger: 1),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 4),
+            Position(stringIndex: 4, fretRelative: 2, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+  },
+
+  // ===================== C# CHORDS =====================
+  'C#': {
+    // C# major (curated voicings)
+    ChordQuality.maj: ChordDefinition(
+      root: 'C#',
+      quality: ChordQuality.maj,
+      voicings: const [
+        // A-shape barre @ 4th: x 4 6 6 6 4
+        ChordVoicing(
+          baseFret: 4,
+          label: 'A-shape @ 4th',
+          barres: [Barre(fromString: 1, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 1, finger: 1),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 4),
+            Position(stringIndex: 4, fretRelative: 3, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+
+        // E-shape barre @ 9th: 9 11 11 10 9 9
+        ChordVoicing(
+          baseFret: 9,
+          label: 'E-shape @ 9th',
+          barres: [Barre(fromString: 0, toStringIndex: 5, fretRelative: 1, finger: 1)],
+          positions: [
+            Position(stringIndex: 0, fretRelative: 1, finger: 1),
+            Position(stringIndex: 1, fretRelative: 3, finger: 3),
+            Position(stringIndex: 2, fretRelative: 3, finger: 4),
+            Position(stringIndex: 3, fretRelative: 2, finger: 2),
+            Position(stringIndex: 4, fretRelative: 1, finger: 1),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
   },
 
   // ===================== D CHORDS =====================
@@ -419,6 +750,46 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
         ),
       ],
     ),
+    // D diminished (curated)
+    ChordQuality.dim: ChordDefinition(
+      root: 'D',
+      quality: ChordQuality.dim,
+      voicings: const [
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 1, finger: 1),
+            Position(stringIndex: 4, fretRelative: 3, finger: 3),
+            Position(stringIndex: 5, fretRelative: 1, finger: 2),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0),
+            Position(stringIndex: 3, fretRelative: 1, finger: 1),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 4, finger: 3),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 3, finger: 2),
+            Position(stringIndex: 3, fretRelative: 0, muted: true),
+            Position(stringIndex: 4, fretRelative: 3, finger: 4),
+            Position(stringIndex: 5, fretRelative: 0, muted: true),
+          ],
+        ),
+      ],
+    ),
   },
 
   // ===================== E CHORDS =====================
@@ -496,6 +867,46 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
         ),
       ],
     ),
+    // E diminished (curated)
+    ChordQuality.dim: ChordDefinition(
+      root: 'E',
+      quality: ChordQuality.dim,
+      voicings: const [
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 5, finger: 3),
+            Position(stringIndex: 3, fretRelative: 3, finger: 2),
+            Position(stringIndex: 4, fretRelative: 5, finger: 4),
+            Position(stringIndex: 5, fretRelative: 3, finger: 1),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 2, finger: 2),
+            Position(stringIndex: 3, fretRelative: 3, finger: 3),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 3, finger: 1),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 3, finger: 2),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 2, finger: 1),
+            Position(stringIndex: 3, fretRelative: 3, finger: 3),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 0, muted: true),
+          ],
+        ),
+      ],
+    ),
   },
 
   // ===================== F CHORDS =====================
@@ -551,6 +962,46 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
             Position(stringIndex: 3, fretRelative: 1, finger: 1),
             Position(stringIndex: 4, fretRelative: 1, finger: 1),
             Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+      ],
+    ),
+    // F diminished (curated)
+    ChordQuality.dim: ChordDefinition(
+      root: 'F',
+      quality: ChordQuality.dim,
+      voicings: const [
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 1, finger: 1),
+            Position(stringIndex: 4, fretRelative: 0, finger: 1),
+            Position(stringIndex: 5, fretRelative: 1, finger: 2),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 1, finger: 1),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 4, finger: 4),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 2, finger: 2),
+            Position(stringIndex: 2, fretRelative: 3, finger: 3),
+            Position(stringIndex: 3, fretRelative: 0, muted: true),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 4, finger: 4),
           ],
         ),
       ],
@@ -662,6 +1113,46 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
         ),
       ],
     ),
+    // G diminished (curated)
+    ChordQuality.dim: ChordDefinition(
+      root: 'G',
+      quality: ChordQuality.dim,
+      voicings: const [
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 3, finger: 3),
+            Position(stringIndex: 4, fretRelative: 2, finger: 2),
+            Position(stringIndex: 5, fretRelative: 3, finger: 4),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 5, finger: 4),
+            Position(stringIndex: 3, fretRelative: 3, finger: 2),
+            Position(stringIndex: 4, fretRelative: 2, finger: 1),
+            Position(stringIndex: 5, fretRelative: 0, muted: true),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 3, finger: 3),
+            Position(stringIndex: 1, fretRelative: 4, finger: 4),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 3, finger: 2),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 0, muted: true),
+          ],
+        ),
+      ],
+    ),
   },
 
   // ===================== A CHORDS =====================
@@ -739,6 +1230,46 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
         ),
       ],
     ),
+    // A diminished (curated)
+    ChordQuality.dim: ChordDefinition(
+      root: 'A',
+      quality: ChordQuality.dim,
+      voicings: const [
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 5, finger: 3),
+            Position(stringIndex: 4, fretRelative: 4, finger: 2),
+            Position(stringIndex: 5, fretRelative: 5, finger: 4),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 1, finger: 1),
+            Position(stringIndex: 3, fretRelative: 0, muted: true),
+            Position(stringIndex: 4, fretRelative: 1, finger: 1),
+            Position(stringIndex: 5, fretRelative: 5, finger: 4),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 3, finger: 3),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 2, finger: 2),
+            Position(stringIndex: 4, fretRelative: 4, finger: 4),
+            Position(stringIndex: 5, fretRelative: 0, muted: true),
+          ],
+        ),
+      ],
+    ),
   },
 
   // ===================== B CHORDS (minimal starter) =====================
@@ -784,6 +1315,46 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
         ),
       ],
     ),
+    // B diminished (curated)
+    ChordQuality.dim: ChordDefinition(
+      root: 'B',
+      quality: ChordQuality.dim,
+      voicings: const [
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 4, finger: 3),
+            Position(stringIndex: 4, fretRelative: 3, finger: 2),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 0, muted: true),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0),
+            Position(stringIndex: 3, fretRelative: 0, muted: true),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 1, finger: 1),
+          ],
+        ),
+        ChordVoicing(
+          baseFret: 1,
+          positions: [
+            Position(stringIndex: 0, fretRelative: 1, finger: 1),
+            Position(stringIndex: 1, fretRelative: 0, muted: true),
+            Position(stringIndex: 2, fretRelative: 0, muted: true),
+            Position(stringIndex: 3, fretRelative: 0, muted: true),
+            Position(stringIndex: 4, fretRelative: 0, muted: true),
+            Position(stringIndex: 5, fretRelative: 0, muted: true),
+          ],
+        ),
+      ],
+    ),
   },
 };
 
@@ -791,8 +1362,22 @@ final Map<String, Map<ChordQuality, ChordDefinition>> chordLibrary = {
 // Helpers for consumers
 // ─────────────────────────────────────────────────────────────────────────────
 
-ChordDefinition? chordDefinition(String root, ChordQuality q) =>
-    chordLibrary[root]?[q];
+ChordDefinition? chordDefinition(String root, ChordQuality q) {
+  final existing = chordLibrary[root]?[q];
+  if (existing != null) return existing;
+
+  // Fallback for diminished triads: synthesize simple voicings when missing.
+  if (q == ChordQuality.dim) {
+    final formula = kChordFormulas[q] ?? [0, 3, 6];
+    final notes = getChordNotes(root, formula);
+    if (notes.isEmpty) return null;
+    final generated = _generateVoicingsFor(root, formula);
+    if (generated.isEmpty) return null;
+    return ChordDefinition(root: root, quality: q, voicings: generated);
+  }
+
+  return null;
+}
 
 List<ChordVoicing> getVoicings(String root, ChordQuality q) =>
     chordDefinition(root, q)?.voicings ?? const [];

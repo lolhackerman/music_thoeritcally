@@ -4,7 +4,7 @@ import 'package:music_theoretically/tabs/scales_tab/scales_tab.dart';
 import 'package:music_theoretically/tabs/chords_tab/chords_tab.dart';
 import 'package:music_theoretically/tabs/settings_tab.dart';
 
-/// Top-level shell with 4 tabs: Home, Scales, Chords, Settings
+/// Top-level shell with 4 tabs: Home, Chords, Scales, Settings
 class AppShell extends StatefulWidget {
   const AppShell({Key? key}) : super(key: key);
 
@@ -37,9 +37,9 @@ class _AppShellState extends State<AppShell> with SingleTickerProviderStateMixin
         physics: const NeverScrollableScrollPhysics(), // Disable swipe
         children: [
           HomeTab(bottomBarKey: _bottomBarKey),
-          const ScalesTab(),
-          const ChordsTab(),
-          const SettingsTab(),
+          ChordsTab(bottomBarKey: _bottomBarKey, tabController: _tabController, tabIndex: 1),
+          ScalesTab(bottomBarKey: _bottomBarKey, tabController: _tabController, tabIndex: 2),
+          SettingsTab(tabController: _tabController, tabIndex: 3),
         ],
       ),
       bottomNavigationBar: Material(
@@ -53,8 +53,8 @@ class _AppShellState extends State<AppShell> with SingleTickerProviderStateMixin
           indicator: const BoxDecoration(), // Remove the underline indicator
           tabs: const [
             Tab(text: 'Home'),
-            Tab(text: 'Scales'),
             Tab(text: 'Chords'),
+            Tab(text: 'Scales'),
             Tab(text: 'Settings'),
           ],
         ),

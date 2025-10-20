@@ -3,6 +3,7 @@
 // ============================
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'chord_library.dart';
 import 'package:music_theoretically/state/app_settings.dart'; // ⬅️ adjust path if needed
@@ -32,7 +33,6 @@ class ChordDiagram extends StatelessWidget {
     final shortest = math.min(width, height);
     final pad = (shortest * 0.05).clamp(2.0, 8.0);
     final radius = (shortest * 0.16).clamp(8.0, 16.0);
-    final borderW = selected ? 1.6 : 1.0;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -43,21 +43,59 @@ class ChordDiagram extends StatelessWidget {
         padding: EdgeInsets.all(pad),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(radius),
-          border: Border.all(
-            width: borderW,
-            color: selected ? Colors.white : Colors.grey.shade600,
-          ),
+          // intentionally no border; selection is visualized via brightness/scale/shadow
         ),
-        child: CustomPaint(
-          painter: _ChordDiagramPainter(
-            voicing: voicing,
-            showFretNumbers: showFretNumbers,
-            settings: settings, // ⬅️ pass settings to painter
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: selected ? 1.0 : 0.0),
+          duration: const Duration(milliseconds: 200),
+          builder: (context, t, child) {
+            // t === 1 when selected, 0 when not. Interpolate scale/bright/shadow.
+            final scale = 1.0 + (0.09 * t); // up to +9% scale
+            final bright = 1.0 + (0.28 * t); // up to +28% brightness
+            final shadowBlur = 8.0 + (16.0 * t);
+            final shadowOffset = 3.0 * t;
+
+            return Transform.scale(
+              scale: scale,
+              alignment: Alignment.center,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    if (t > 0)
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.34 * t),
+                        blurRadius: shadowBlur,
+                        offset: Offset(0, shadowOffset),
+                      ),
+                  ],
+                ),
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.matrix(_brightnessMatrix(bright)),
+                  child: child,
+                ),
+              ),
+            );
+          },
+          child: CustomPaint(
+            painter: _ChordDiagramPainter(
+              voicing: voicing,
+              showFretNumbers: showFretNumbers,
+              settings: settings, // ⬅️ pass settings to painter
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+List<double> _brightnessMatrix(double scale) {
+  return <double>[
+    scale, 0, 0, 0, 0,
+    0, scale, 0, 0, 0,
+    0, 0, scale, 0, 0,
+    0, 0, 0, 1, 0,
+  ];
 }
 
 class _ChordDiagramPainter extends CustomPainter {
@@ -133,8 +171,22 @@ class _ChordDiagramPainter extends CustomPainter {
         _drawX(canvas, Offset(cx, g.openY), g.markerR, col, g.markerStrokeW);
       } else if (isOpen) {
         final note = pcs[p.stringIndex];
-        final col = _colorForNoteFromSettings(note);
-        _drawOpenO(canvas, Offset(cx, g.openY), g.markerR, col, g.markerStrokeW);
+        // Use gradient fill for sharps to match fretboard via AppSettings
+        if ((note ?? '').contains('#')) {
+          final pair = settings.gradientPairForAccidental(note!);
+          final r = g.markerR * 1.0;
+          final shader = ui.Gradient.linear(
+            Offset(cx - r, g.openY - r),
+            Offset(cx + r, g.openY + r),
+            [pair.base, pair.next],
+          );
+          canvas.drawCircle(Offset(cx, g.openY), r, Paint()..shader = shader);
+          // outline stroke for contrast
+          _drawOpenO(canvas, Offset(cx, g.openY), g.markerR, _colorForNoteFromSettings(note), g.markerStrokeW);
+        } else {
+          final col = _colorForNoteFromSettings(note);
+          _drawOpenO(canvas, Offset(cx, g.openY), g.markerR, col, g.markerStrokeW);
+        }
       }
     }
 
@@ -170,7 +222,23 @@ class _ChordDiagramPainter extends CustomPainter {
       final note = pcs[p.stringIndex];
       final fill = _colorForNoteFromSettings(note);
       final textCol = _legibleTextOn(fill);
-      canvas.drawCircle(c, g.dotR, Paint()..color = fill);
+      if ((note ?? '').contains('#')) {
+        final pair = settings.gradientPairForAccidental(note!);
+        final r = g.dotR;
+        final shader = ui.Gradient.linear(
+          Offset(c.dx - r, c.dy - r),
+          Offset(c.dx + r, c.dy + r),
+          [pair.base, pair.next],
+        );
+        canvas.drawCircle(c, r, Paint()..shader = shader);
+        // subtle outline
+        canvas.drawCircle(c, r, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = g.markerStrokeW
+          ..color = Colors.black.withOpacity(0.22));
+      } else {
+        canvas.drawCircle(c, g.dotR, Paint()..color = fill);
+      }
 
       if (p.finger != null) {
         final tp = TextPainter(

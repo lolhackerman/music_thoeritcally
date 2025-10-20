@@ -4,6 +4,7 @@ import 'package:music_theoretically/widgets/fretboard/fretboard_styles.dart' as 
 import 'package:music_theoretically/widgets/fretboard/fretboard_viewport.dart' as fbv;
 import 'package:music_theoretically/widgets/fretboard/fret_spot.dart';
 import 'package:music_theoretically/widgets/responsive_layout.dart';
+import 'package:music_theoretically/widgets/fade_on_mount.dart';
 
 import 'chord_library.dart';
 import 'chord_diagram.dart';
@@ -11,14 +12,16 @@ import 'chord_formulas.dart';
 
 class ChordsTab extends StatefulWidget {
   final GlobalKey? bottomBarKey;
-  const ChordsTab({super.key, this.bottomBarKey});
+  final TabController? tabController;
+  final int? tabIndex;
+  const ChordsTab({super.key, this.bottomBarKey, this.tabController, this.tabIndex});
 
   @override
   State<ChordsTab> createState() => _ChordsTabState();
 }
 
 class _ChordsTabState extends State<ChordsTab>
-    with AutomaticKeepAliveClientMixin<ChordsTab> {
+  with AutomaticKeepAliveClientMixin<ChordsTab> {
   @override
   bool get wantKeepAlive => true;
 
@@ -30,6 +33,8 @@ class _ChordsTabState extends State<ChordsTab>
   ChordDefinition? _currentChord;
   int _selectedVoicingIndex = 0;
   double? _fretboardContentHeight;
+
+  // fade handled by FadeOnMount wrapper
 
   List<FretSpot>? _getSelectedSpots() {
     if (_currentChord == null || _selectedVoicingIndex >= _currentChord!.voicings.length) {
@@ -106,7 +111,10 @@ class _ChordsTabState extends State<ChordsTab>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return ResponsiveLayout(builder: (ctx, ori, wF, hF) {
+    return FadeOnMount(
+      tabController: widget.tabController,
+      tabIndex: widget.tabIndex,
+      child: ResponsiveLayout(builder: (ctx, ori, wF, hF) {
       const baseHPad = 72.0;
       final hPad = wF * baseHPad;
 
@@ -135,7 +143,7 @@ class _ChordsTabState extends State<ChordsTab>
           // Give the top band a small floor so selectors never disappear
           final stripHeight = freeSpace.clamp(56.0, kStripMax);
 
-          return SizedBox.expand(
+            return SizedBox.expand(
             child: Stack(
               key: _stackKey,
               fit: StackFit.expand,
@@ -285,11 +293,12 @@ class _ChordsTabState extends State<ChordsTab>
                   ),
                 ),
               ],
-            ),
-          );
+                ),
+              );
         },
       );
-    });
+    }),
+    );
   }
 }
 

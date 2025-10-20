@@ -14,7 +14,7 @@ class HomeTab extends StatefulWidget {
   _HomeTabState createState() => _HomeTabState();
 }
 
-class _HomeTabState extends State<HomeTab> {
+class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   // Keys to compute geometry safely
   final GlobalKey _stackKey = GlobalKey();
   final GlobalKey _boardKey = GlobalKey();
@@ -22,6 +22,10 @@ class _HomeTabState extends State<HomeTab> {
   // Notes live in notifiers to avoid setState on taps.
   final ValueNotifier<String?> _note1VN = ValueNotifier<String?>(null);
   final ValueNotifier<String?> _note2VN = ValueNotifier<String?>(null);
+
+  // Animation controller for smooth fade in
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnimation;
 
   void _handleNoteTap(String fullNote) {
     final a = _note1VN.value;
@@ -35,9 +39,24 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
+    _fadeController.forward();
+  }
+
+  @override
   void dispose() {
     _note1VN.dispose();
     _note2VN.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -144,9 +163,11 @@ class _HomeTabState extends State<HomeTab> {
           heightFrac = 0.42;
         }
 
-        return Stack(
-          key: _stackKey,
-          children: [
+        return FadeTransition(
+          opacity: _fadeAnimation,
+          child: Stack(
+            key: _stackKey,
+            children: [
             // Base layer: keeps fretboard centered exactly like your original
             fbv.FretboardViewport(
               snapToOppositeNotchEdge: true,
@@ -187,7 +208,8 @@ class _HomeTabState extends State<HomeTab> {
               ),
             ),
           ],
-        );
+        ),
+      );
       },
     );
   }
@@ -203,7 +225,7 @@ class _CenteredScalableFinder extends StatelessWidget {
   final String? secondNote;
 
   const _CenteredScalableFinder({
-    super.key,
+    Key? key,
     required this.designSize,
     required this.maxWidthFraction,
     required this.maxHeightFraction,

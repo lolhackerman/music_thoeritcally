@@ -121,3 +121,71 @@ class PortraitComposerLeftTools implements ScalesComposer {
     );
   }
 }
+
+/// PORTRAIT (right overlay): Keeps the fretboard exactly where it is and
+/// overlays a narrow right-aligned sidebar (Column) on top using a Stack.
+/// The sidebar contains the selector on top and the interval list beneath
+/// in a cascading column. The sidebar width is constrained so it never
+/// pushes/resizes the fretboard underneath.
+class PortraitOverlayRightSidebar implements ScalesComposer {
+  final double sidebarMaxWidth; // absolute max width for sidebar
+  final double sidebarWidthFraction; // fraction of available width to request
+  final double gap; // vertical gap between selector and finder
+  const PortraitOverlayRightSidebar({
+    this.sidebarMaxWidth = 360,
+    this.sidebarWidthFraction = 0.28,
+    this.gap = 8,
+  });
+
+  @override
+  Widget build(BuildContext context, ScalesChildren c) {
+    return Stack(
+      children: [
+        // Center the fretboard exactly as before
+        Align(alignment: Alignment.center, child: c.fretboard),
+
+        // Right-aligned overlay: respect safe area insets so we don't
+        // overlap the notch/padding from FretboardViewport underneath.
+        Positioned.fill(
+          child: SafeArea(
+            right: true,
+            left: false,
+            top: true,
+            bottom: true,
+            child: LayoutBuilder(builder: (context, cons) {
+              // Determine a width that won't push the fretboard: use a
+              // constrained width that is at most sidebarMaxWidth and a
+              // fraction of available width.
+              final desiredW = (cons.maxWidth * sidebarWidthFraction).clamp(160.0, sidebarMaxWidth);
+              return Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: c.horizontalPad, // keep existing horizontal padding
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: desiredW,
+                      // Height can grow but we'll let Column size naturally.
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 260),
+                          child: c.selector,
+                        ),
+                        SizedBox(height: gap),
+                        // Allow interval finder to flow beneath the selector.
+                        Flexible(child: c.intervalFinder),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+}

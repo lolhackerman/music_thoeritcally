@@ -31,8 +31,8 @@ const Color kDefaultHighlightInScaleColor  = Color.fromARGB(255, 255, 234, 184);
 const Color kDefaultInlayDotColor = Color.fromARGB(255, 35, 34, 34);
 
 /// Default marker colors
-const Color kDefaultMarkerRomanColor = Color.fromARGB(255, 75, 75, 75);
-const Color kDefaultMarkerNumericColor = Color.fromARGB(255, 75, 75, 75);
+const Color kDefaultMarkerRomanColor = Color.fromARGB(255, 131, 131, 131);
+const Color kDefaultMarkerNumericColor = Color.fromARGB(255, 131, 131, 131);
 
 /// ─────────────────────────────────────────────────────────────────────────────
 /// Global Settings (ChangeNotifier + InheritedNotifier scope)
